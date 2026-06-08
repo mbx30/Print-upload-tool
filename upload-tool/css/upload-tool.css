@@ -1,0 +1,152 @@
+/*
+ * upload-tool.css — styles for the artwork upload + preflight widget.
+ * Everything is namespaced under .sl-ut-* so it can drop into any page
+ * without clashing. Tune the variables in :root to match your brand.
+ */
+:root {
+  --sl-ut-primary: #2f6df6;
+  --sl-ut-primary-dark: #1f57d6;
+  --sl-ut-bg: #ffffff;
+  --sl-ut-fg: #1f2733;
+  --sl-ut-muted: #687387;
+  --sl-ut-border: #d8dee8;
+  --sl-ut-pass: #1e9e5a;
+  --sl-ut-warn: #c98a00;
+  --sl-ut-fail: #d63b3b;
+  --sl-ut-info: #5566aa;
+  --sl-ut-bleed: #e8553a;
+  --sl-ut-trim: #2f6df6;
+  --sl-ut-safe: #1e9e5a;
+  --sl-ut-radius: 10px;
+  --sl-ut-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
+}
+
+body.sl-ut-noscroll { overflow: hidden; }
+
+.sl-ut-overlay {
+  position: fixed; inset: 0; z-index: 10000;
+  display: none; align-items: center; justify-content: center;
+  background: rgba(17, 24, 39, 0.55);
+  font-family: var(--sl-ut-font);
+  color: var(--sl-ut-fg);
+  padding: 20px;
+}
+.sl-ut-overlay.sl-ut-open { display: flex; }
+
+.sl-ut-modal {
+  background: var(--sl-ut-bg);
+  width: min(960px, 100%);
+  max-height: 92vh;
+  border-radius: var(--sl-ut-radius);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.3);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+
+.sl-ut-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px; border-bottom: 1px solid var(--sl-ut-border);
+}
+.sl-ut-title { font-size: 17px; font-weight: 650; }
+.sl-ut-close {
+  border: 0; background: transparent; font-size: 26px; line-height: 1;
+  color: var(--sl-ut-muted); cursor: pointer; padding: 0 6px;
+}
+.sl-ut-close:hover { color: var(--sl-ut-fg); }
+
+.sl-ut-body { padding: 20px; overflow: auto; }
+
+/* ---- Step 1: dropzone ---- */
+.sl-ut-input { display: none; }
+.sl-ut-dropzone {
+  border: 2px dashed var(--sl-ut-border);
+  border-radius: var(--sl-ut-radius);
+  padding: 48px 24px; text-align: center; cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.sl-ut-dropzone:hover, .sl-ut-dropzone:focus { border-color: var(--sl-ut-primary); outline: none; }
+.sl-ut-dragging { border-color: var(--sl-ut-primary); background: rgba(47,109,246,.06); }
+.sl-ut-drop-icon { font-size: 34px; color: var(--sl-ut-primary); }
+.sl-ut-drop-main { font-size: 17px; font-weight: 600; margin-top: 8px; }
+.sl-ut-drop-sub { color: var(--sl-ut-muted); margin-top: 4px; }
+.sl-ut-link { color: var(--sl-ut-primary); text-decoration: underline; }
+.sl-ut-drop-hint { color: var(--sl-ut-muted); font-size: 13px; margin-top: 14px; }
+
+/* ---- Step 2: preview + side panel ---- */
+.sl-ut-step-preview { display: grid; grid-template-columns: 1fr 320px; gap: 20px; }
+.sl-ut-preview { min-width: 0; }
+.sl-ut-stage {
+  position: relative; width: 100%; height: 380px;
+  background:
+    linear-gradient(45deg, #eef1f5 25%, transparent 25%, transparent 75%, #eef1f5 75%) 0 0/20px 20px,
+    linear-gradient(45deg, #eef1f5 25%, #f7f9fc 25%, #f7f9fc 75%, #eef1f5 75%) 10px 10px/20px 20px;
+  border: 1px solid var(--sl-ut-border); border-radius: 8px;
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+}
+.sl-ut-canvas { display: block; box-shadow: 0 2px 10px rgba(0,0,0,.12); }
+
+/* Guide overlay sits exactly over the rendered artwork (sized in JS). */
+.sl-ut-guides { position: absolute; pointer-events: none; }
+.sl-ut-guide { position: absolute; box-sizing: border-box; }
+.sl-ut-guide-bleed { border: 1.5px solid var(--sl-ut-bleed); }
+.sl-ut-guide-trim  { border: 1.5px solid var(--sl-ut-trim); }
+.sl-ut-guide-safe  { border: 1.5px dashed var(--sl-ut-safe); }
+
+.sl-ut-legend { display: flex; align-items: center; gap: 14px; margin-top: 12px; font-size: 13px; flex-wrap: wrap; }
+.sl-ut-leg { display: inline-flex; align-items: center; color: var(--sl-ut-muted); }
+.sl-ut-leg::before { content: ""; width: 14px; height: 0; border-top-width: 2px; border-top-style: solid; margin-right: 6px; }
+.sl-ut-leg-bleed::before { border-color: var(--sl-ut-bleed); }
+.sl-ut-leg-trim::before  { border-color: var(--sl-ut-trim); }
+.sl-ut-leg-safe::before  { border-color: var(--sl-ut-safe); border-top-style: dashed; }
+.sl-ut-toggle { margin-left: auto; color: var(--sl-ut-muted); display: inline-flex; align-items: center; gap: 6px; }
+
+.sl-ut-side { min-width: 0; }
+.sl-ut-fileinfo { font-size: 14px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 2px; }
+.sl-ut-fileinfo span { color: var(--sl-ut-muted); font-size: 12px; }
+
+.sl-ut-checklist { list-style: none; margin: 0 0 14px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.sl-ut-check { display: flex; gap: 10px; font-size: 13px; line-height: 1.35; }
+.sl-ut-check-icon {
+  flex: 0 0 20px; height: 20px; border-radius: 50%; color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700;
+}
+.sl-ut-check-pass .sl-ut-check-icon { background: var(--sl-ut-pass); }
+.sl-ut-check-warn .sl-ut-check-icon { background: var(--sl-ut-warn); }
+.sl-ut-check-fail .sl-ut-check-icon { background: var(--sl-ut-fail); }
+.sl-ut-check-info .sl-ut-check-icon { background: var(--sl-ut-info); }
+.sl-ut-check-body { display: flex; flex-direction: column; }
+.sl-ut-check-body strong { font-weight: 600; }
+.sl-ut-check-body span { color: var(--sl-ut-muted); }
+
+.sl-ut-ack {
+  display: flex; gap: 10px; font-size: 13px; line-height: 1.4;
+  background: #f7f9fc; border: 1px solid var(--sl-ut-border);
+  border-radius: 8px; padding: 12px;
+}
+.sl-ut-ack input { margin-top: 2px; }
+
+/* ---- footer ---- */
+.sl-ut-footer {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 20px; border-top: 1px solid var(--sl-ut-border);
+}
+.sl-ut-progress { flex: 1; height: 6px; background: #eef1f5; border-radius: 4px; overflow: hidden; display: none; }
+.sl-ut-progress-bar { width: 0; height: 100%; background: var(--sl-ut-primary); transition: width .15s; }
+.sl-ut-btn {
+  border: 1px solid transparent; border-radius: 8px; padding: 10px 18px;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.sl-ut-btn-ghost { background: #fff; border-color: var(--sl-ut-border); color: var(--sl-ut-fg); }
+.sl-ut-btn-ghost:hover { background: #f3f5f9; }
+.sl-ut-btn-primary { background: var(--sl-ut-primary); color: #fff; }
+.sl-ut-btn-primary:hover { background: var(--sl-ut-primary-dark); }
+.sl-ut-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+.sl-ut-error { color: var(--sl-ut-fail); font-size: 13px; margin-top: 12px; }
+
+@media (max-width: 720px) {
+  .sl-ut-step-preview { grid-template-columns: 1fr; }
+  .sl-ut-stage { height: 280px; }
+}
