@@ -34,6 +34,9 @@
   function UploadTool(options) {
     this.opt = normalizeOptions(options);
     this.state = resetState();
+    this._generation = 0;  // incremented on each file selection to discard stale inspects
+    this._imgEl = null;
+    this._finishTimer = null;
     this._build();
     this._bindTrigger();
   }
@@ -169,9 +172,11 @@
       '<input type="checkbox" class="sl-ut-ack-box"> ' +
       '<span class="sl-ut-ack-text"></span>';
     ack.querySelector('.sl-ut-ack-text').textContent = this.opt.acknowledgementText;
+    var step2Err = el('div', 'sl-ut-error');
     side.appendChild(fileInfo);
     side.appendChild(checklist);
     side.appendChild(ack);
+    side.appendChild(step2Err);
 
     step2.appendChild(preview);
     step2.appendChild(side);
@@ -198,12 +203,15 @@
     overlay.appendChild(modal);
     d.body.appendChild(overlay);
 
-    // Cache refs
+    // Cache refs (including guide children so _placeGuides avoids repeated queries)
     this.dom = {
       overlay: overlay, modal: modal, close: close,
       step1: step1, step2: step2, drop: drop, input: input, step1Err: step1Err,
       canvas: canvas, stage: stage, guides: guides,
-      fileInfo: fileInfo, checklist: checklist,
+      guideBleed: guides.querySelector('.sl-ut-guide-bleed'),
+      guideTrim: guides.querySelector('.sl-ut-guide-trim'),
+      guideSafe: guides.querySelector('.sl-ut-guide-safe'),
+      fileInfo: fileInfo, checklist: checklist, step2Err: step2Err,
       ackBox: ack.querySelector('.sl-ut-ack-box'),
       guideToggle: legend.querySelector('.sl-ut-guide-toggle'),
       back: back, submit: submit,
@@ -261,8 +269,12 @@
       dom.guides.style.display = dom.guideToggle.checked ? '' : 'none';
     });
     dom.submit.addEventListener('click', function () { self._submit(); });
+    var resizeTimer = null;
     root.addEventListener('resize', function () {
-      if (self._isOpen() && self.state.file) self._renderPreview();
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function () {
+        if (self._isOpen() && self.state.file) self._renderPreview();
+      }, 150);
     });
   };
 
@@ -290,13 +302,18 @@
   };
 
   UploadTool.prototype._reset = function () {
+    clearTimeout(this._finishTimer);
+    this._finishTimer = null;
     if (this.state.objectUrl) URL.revokeObjectURL(this.state.objectUrl);
+    this._generation++;   // invalidates any in-flight inspect promise
+    this._imgEl = null;
     this.state = resetState();
     this.dom.input.value = '';
     this.dom.ackBox.checked = false;
     this.dom.step1Err.textContent = '';
     this.dom.checklist.innerHTML = '';
     this.dom.fileInfo.textContent = '';
+    this.dom.step2Err.textContent = '';
     this._setProgress(0, false);
   };
 
@@ -326,10 +343,13 @@
 
     this._goStep(2);
     var self = this;
+    var gen = this._generation;
     this._inspect().then(function () {
+      if (self._generation !== gen) return;  // user switched files; discard
       self._runPreflight();
       self._renderPreview();
     }).catch(function (e) {
+      if (self._generation !== gen) return;
       self._runPreflight(e);
       self._renderPreview();
     });
@@ -443,7 +463,8 @@
 
     if (ext === 'pdf' && this.state.pdfDoc) {
       root.SinPdf.renderToCanvas(this.state.pdfDoc, 1, this.dom.canvas, maxW, maxH)
-        .then(function (r) { done(r.cssWidth, r.cssHeight); });
+        .then(function (r) { done(r.cssWidth, r.cssHeight); })
+        .catch(function (e) { self._fail(e); });
       return;
     }
 
@@ -487,19 +508,24 @@
       root.SinPreflight.geometry(this.opt.spec);
     if (!g.bleedW || !g.bleedH) { this.dom.guides.style.display = 'none'; return; }
 
-    this.dom.guides.style.display = this.dom.guideToggle.checked ? '' : 'none';
-    this.dom.guides.style.width = cssW + 'px';
+    // Centre the overlay over the canvas (canvas is flex-centred inside the stage).
+    var stageW = this.dom.stage.clientWidth;
+    var stageH = this.dom.stage.clientHeight;
+    this.dom.guides.style.left = Math.round((stageW - cssW) / 2) + 'px';
+    this.dom.guides.style.top  = Math.round((stageH - cssH) / 2) + 'px';
+    this.dom.guides.style.width  = cssW + 'px';
     this.dom.guides.style.height = cssH + 'px';
+    this.dom.guides.style.display = this.dom.guideToggle.checked ? '' : 'none';
 
     var trimInsetX = (g.bleed / g.bleedW) * cssW;
     var trimInsetY = (g.bleed / g.bleedH) * cssH;
     var safeInsetX = ((g.bleed + g.safe) / g.bleedW) * cssW;
     var safeInsetY = ((g.bleed + g.safe) / g.bleedH) * cssH;
 
-    setBox(this.dom.guides.querySelector('.sl-ut-guide-bleed'), 0, 0, cssW, cssH);
-    setBox(this.dom.guides.querySelector('.sl-ut-guide-trim'),
+    setBox(this.dom.guideBleed, 0, 0, cssW, cssH);
+    setBox(this.dom.guideTrim,
       trimInsetX, trimInsetY, cssW - 2 * trimInsetX, cssH - 2 * trimInsetY);
-    setBox(this.dom.guides.querySelector('.sl-ut-guide-safe'),
+    setBox(this.dom.guideSafe,
       safeInsetX, safeInsetY, cssW - 2 * safeInsetX, cssH - 2 * safeInsetY);
   };
 
@@ -585,7 +611,8 @@
     this.state.submitting = false;
     this.dom.submit.textContent = 'Submitted ✓';
     var self = this;
-    setTimeout(function () {
+    this._finishTimer = setTimeout(function () {
+      self._finishTimer = null;
       self.dom.submit.textContent = 'Submit artwork';
       self.close();
     }, res && res.uploaded === false ? 250 : 900);
@@ -594,9 +621,7 @@
   UploadTool.prototype._fail = function (err) {
     this.state.submitting = false;
     this._setProgress(0, false);
-    this.dom.step1Err.textContent = '';
-    this.dom.fileInfo.insertAdjacentHTML('beforeend',
-      '<div class="sl-ut-error">' + escapeHtml(err.message) + '</div>');
+    this.dom.step2Err.textContent = err.message;
     this._refreshSubmit();
     this.opt.onError(err);
   };

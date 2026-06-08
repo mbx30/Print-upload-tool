@@ -39,6 +39,7 @@
         resolve(root.pdfjsLib);
       };
       s.onerror = function () {
+        loading = null;  // allow retry on next call
         reject(new Error('Could not load pdf.js from ' + LIB_URL));
       };
       document.head.appendChild(s);

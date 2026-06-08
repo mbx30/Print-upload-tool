@@ -160,6 +160,7 @@
     if (!w || !h) {
       checks.push(mk('dimensions', 'Page size', 'fail',
         'Could not read the PDF page size.'));
+      return;
     } else {
       var tol = g.tolerancePct / 100;
       // Page box is expected to equal the bleed size.

@@ -68,5 +68,23 @@ ok(check(pdfRot, card, 'bleed').level === 'warn', 'rotated PDF warns orientation
 var pdfMulti = { source: 'pdf', widthIn: 3.625, heightIn: 2.125, pageCount: 2 };
 ok(!!check(pdfMulti, card, 'pages'), 'multi-page PDF emits a pages note');
 
+// --- pdf: unreadable page size must NOT emit a resolution check (early return fix) ---
+var pdfNoSize = { source: 'pdf', widthIn: 0, heightIn: 0, pageCount: 1 };
+var pdfNoSizeResult = P.evaluate(pdfNoSize, card);
+ok(pdfNoSizeResult.level === 'fail', 'zero-dimension PDF is a fail');
+ok(!check(pdfNoSize, card, 'resolution'), 'zero-dimension PDF has no spurious resolution check');
+ok(check(pdfNoSize, card, 'dimensions').level === 'fail', 'zero-dimension PDF has dimensions fail check');
+
+// --- pdf: missing widthIn/heightIn (undefined) also early-exits cleanly ---
+var pdfUndef = { source: 'pdf', pageCount: 1 };
+var pdfUndefResult = P.evaluate(pdfUndef, card);
+ok(pdfUndefResult.level === 'fail', 'pdf with no size fields is a fail');
+ok(!check(pdfUndef, card, 'bleed'), 'pdf with no size fields has no bleed check');
+
+// --- evaluate: zero-pixel raster fails on dimensions, not resolution ---
+var zeroRaster = { source: 'image', pxWidth: 0, pxHeight: 0 };
+ok(check(zeroRaster, card, 'dimensions').level === 'fail', 'zero-pixel raster fails dimensions');
+ok(!check(zeroRaster, card, 'resolution'), 'zero-pixel raster has no resolution check (returned early)');
+
 console.log((fail ? '✗' : '✓') + ' preflight: ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
